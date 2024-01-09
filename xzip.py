@@ -54,6 +54,13 @@ def rR(f,o,l):
     d = f.read(l)
     f.seek(c)
     return d
+def xmwPreloadSize(f):
+    f.seek(4)
+    headersize = u32(f)
+    f.seek(0x14)
+    vdatSize = u16(f)
+    return headersize+vdatSize
+
 def CRCFilename(filename):
     hash = int(0xAAAAAAAA)
     for c in filename:
@@ -144,13 +151,21 @@ class xZip(object):
             self.FilenameOffset = u32(f)
             self.TimeStamp = time.ctime(u32(f))
             self.Filename = rS(f,self.FilenameOffset)
-            print("%s:%s"%(self.TimeStamp,self.Filename))
+            #print("%s:%s"%(self.TimeStamp,self.Filename))
+    class xZipFooter_t(object):
+        def __init__(self):
+            self.Size = 0
+            self.Magic = 'tFzX' #Byteflipy
+        def read(self,f):
+            self.Size = u32(f)
+            self.Magic = f.read(4)
     def __init__(self):
         self.Header = self.xZipHeader_t()
         self.pDirectoryEntries = []
         self.pPreloadDirectoryEntries = []
         self.nRegular2PreloadEntryMapping = []
         self.pFilenameEntries = []
+        self.Footer = self.xZipFooter_t()
         
     def read(self,f):
         self.Header.read(f)
@@ -162,7 +177,23 @@ class xZip(object):
             self.pPreloadDirectoryEntries[a].read(f)
         for a in range(self.Header.DirectoryEntries):
             self.nRegular2PreloadEntryMapping.append(u16(f))
+        print(hex(f.tell()))
         f.seek(self.Header.FilenameStringsOffset)
+        print(hex(f.tell()))
         for a in range(self.Header.DirectoryEntries):
             self.pFilenameEntries.append(self.xZipFilenameEntry_t())
             self.pFilenameEntries[a].read(f)
+        print(hex(f.tell()))
+
+        '''
+        Header(0x24)
+        DirEnt(0xC*DirEntCnt)
+        PreLod(0xC*PrelodCnt)
+        R2PLod(0x2*DirEntCnt)
+        PreloadData
+        RegularData
+        Filenames(0xC*DirEntCnt)
+        FilenameStrings
+        Footer(0x8)
+
+        '''
