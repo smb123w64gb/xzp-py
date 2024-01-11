@@ -32,6 +32,9 @@ def ws8(file,val):
 def wstr(file,val):
     file.write(struct.pack("s", val))
 
+def xPad(f):
+    f.write(bytes([0] * (( 512 - ( f.tell() % 512) ) % 512)))
+
 
 def getstr(f, term=b'\0'):
     result = ""
@@ -113,11 +116,20 @@ class xZip(object):
             self.FilenameCRC = u32(f)
             self.Length = u32(f)
             self.StoredOffset = s32(f)
+            self.OffsetOfOffset = 0
             self.Data = rR(f,self.StoredOffset,self.Length)
-        def write(self,f):
+        def write_entry(self,f):
             w32(f,self.FilenameCRC)
             w32(f,self.Length)
-            w32(f,self.StoredOffset)
+            self.OffsetOfOffset = f.tell()
+            w32(f,0)
+        def write_data(self,f):
+            off = f.tell()
+            f.write(self.Data)
+            ret = f.tell()
+            f.seek(self.OffsetOfOffset)
+            w32(off)
+            f.seek(ret)
         def DirectoryEntrySortCompare(l,r):
             if(l.FilenameCRC < r.FilenameCRC):
                 return -1
@@ -145,13 +157,25 @@ class xZip(object):
             self.FilenameCRC = 0
             self.FilenameOffset = 0
             self.TimeStamp = int(time.time())
+            self.OffsetOfOffset = 0
             self.Filename = ''
         def read(self,f):
             self.FilenameCRC = u32(f)
             self.FilenameOffset = u32(f)
-            self.TimeStamp = time.ctime(u32(f))
+            self.TimeStamp = u32(f)
             self.Filename = rS(f,self.FilenameOffset)
-            #print("%s:%s"%(self.TimeStamp,self.Filename))
+        def write_entry(self,f):
+            w32(f,self.FilenameCRC)
+            self.OffsetOfOffset = f.tell()
+            w32(f,0)
+            w32(f,self.TimeStamp)
+        def write_string(self,f):
+            off = f.tell()
+            f.write(self.Filename)
+            ret = f.tell()
+            f.seek(self.OffsetOfOffset)
+            w32(f,off)
+            f.seek(ret)
     class xZipFooter_t(object):
         def __init__(self):
             self.Size = 0
@@ -159,6 +183,10 @@ class xZip(object):
         def read(self,f):
             self.Size = u32(f)
             self.Magic = f.read(4)
+        def write(self,f):
+            #Ima be lazy
+            w32(f,f.tell()+8)
+            f.write(self.Magic)
     def __init__(self):
         self.Header = self.xZipHeader_t()
         self.pDirectoryEntries = []
@@ -177,15 +205,17 @@ class xZip(object):
             self.pPreloadDirectoryEntries[a].read(f)
         for a in range(self.Header.DirectoryEntries):
             self.nRegular2PreloadEntryMapping.append(u16(f))
-        print(hex(f.tell()))
         f.seek(self.Header.FilenameStringsOffset)
-        print(hex(f.tell()))
         for a in range(self.Header.DirectoryEntries):
             self.pFilenameEntries.append(self.xZipFilenameEntry_t())
             self.pFilenameEntries[a].read(f)
-        print(hex(f.tell()))
+        f.seek(-8,2)
+        self.Footer.read(f)
+
 
         '''
+        PreloadSize is from the end of DirEnts To the last Preload Data(This could mean R2PLod is to be acounted for in preload data.)
+
         Header(0x24)
         DirEnt(0xC*DirEntCnt)
         PreLod(0xC*PrelodCnt)
