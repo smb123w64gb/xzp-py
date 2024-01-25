@@ -193,13 +193,13 @@ class xZip(object):
         self.pPreloadDirectoryEntries = []
         self.nRegular2PreloadEntryMapping = []
         self.pFilenameEntries = []
-        self.Footer = self.xZipFooter_t()
-        
+        self.Footer = self.xZipFooter_t()       
     def read(self,f):
         self.Header.read(f)
         for a in range(self.Header.DirectoryEntries):
             self.pDirectoryEntries.append(self.xZipDirectoryEntry_t())
             self.pDirectoryEntries[a].read(f)
+        #Preload Starts here
         for a in range(self.Header.PreloadDirectoryEntries):
             self.pPreloadDirectoryEntries.append(self.xZipDirectoryEntry_t())
             self.pPreloadDirectoryEntries[a].read(f)
@@ -211,19 +211,28 @@ class xZip(object):
             self.pFilenameEntries[a].read(f)
         f.seek(-8,2)
         self.Footer.read(f)
+        for a in self.pDirectoryEntries:
+            #[val for key, val in test_dict.items() if search_key in key]
+            for b in self.pFilenameEntries:
+                if b.FilenameCRC == a.FilenameCRC:
+                    a.Filename = b.Filename
+        for a in self.pPreloadDirectoryEntries:
+            #[val for key, val in test_dict.items() if search_key in key]
+            for b in self.pFilenameEntries:
+                if b.FilenameCRC == a.FilenameCRC:
+                    a.Filename = b.Filename
+    def write(self,f):
+        print("Not working")
 
-
-        '''
-        PreloadSize is from the end of DirEnts To the last Preload Data(This could mean R2PLod is to be acounted for in preload data.)
-
-        Header(0x24)
-        DirEnt(0xC*DirEntCnt)
-        PreLod(0xC*PrelodCnt)
-        R2PLod(0x2*DirEntCnt)
-        PreloadData
-        RegularData
-        Filenames(0xC*DirEntCnt)
-        FilenameStrings
-        Footer(0x8)
-
-        '''
+'''
+Header
+RegLoading
+ #Preloading starts from here
+PreLoading
+PreloadMapping #To Regular loading -1 is no preload
+PreData #Mainly headers but textures get a Preload Texture 8x8
+ #Preload Ends
+BulkData
+Strings
+Footer
+'''
