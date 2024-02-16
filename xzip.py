@@ -192,7 +192,7 @@ class xZip(object):
         self.pDirectoryEntries = []
         self.pPreloadDirectoryEntries = []
         self.nRegular2PreloadEntryMapping = []
-        self.pFilenameEntries = []
+        self.pFilenameEntries = {}
         self.Footer = self.xZipFooter_t()       
     def read(self,f):
         self.Header.read(f)
@@ -207,20 +207,16 @@ class xZip(object):
             self.nRegular2PreloadEntryMapping.append(u16(f))
         f.seek(self.Header.FilenameStringsOffset)
         for a in range(self.Header.DirectoryEntries):
-            self.pFilenameEntries.append(self.xZipFilenameEntry_t())
-            self.pFilenameEntries[a].read(f)
+            Fname = self.xZipFilenameEntry_t()
+            Fname.read(f)
+            self.pFilenameEntries[Fname.FilenameCRC] = Fname
         f.seek(-8,2)
         self.Footer.read(f)
+        print("Most Read\nNow matching Filenames")
         for a in self.pDirectoryEntries:
-            #[val for key, val in test_dict.items() if search_key in key]
-            for b in self.pFilenameEntries:
-                if b.FilenameCRC == a.FilenameCRC:
-                    a.Filename = b.Filename
+            a.Filename = self.pFilenameEntries[a.FilenameCRC].Filename
         for a in self.pPreloadDirectoryEntries:
-            #[val for key, val in test_dict.items() if search_key in key]
-            for b in self.pFilenameEntries:
-                if b.FilenameCRC == a.FilenameCRC:
-                    a.Filename = b.Filename
+            a.Filename = self.pFilenameEntries[a.FilenameCRC].Filename
     def write(self,f):
         print("Not working")
 
