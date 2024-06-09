@@ -190,14 +190,41 @@ class xZip(object):
         def write(self,f):
             #Ima be lazy
             w32(f,f.tell()+8)
-            f.write(self.Magic)
+            f.write(bytes(self.Magic,'utf-8'))
     def __init__(self):
         self.Header = self.xZipHeader_t()
         self.pDirectoryEntries = []
         self.pPreloadDirectoryEntries = []
         self.nRegular2PreloadEntryMapping = []
         self.pFilenameEntries = {}
-        self.Footer = self.xZipFooter_t()       
+        self.Footer = self.xZipFooter_t()   
+    def addFile(self,f,fn,preload=0):
+        data = f.read()
+        crcname = CRCFilename(fn)
+        filename = self.xZipFilenameEntry_t()
+        filename.FilenameCRC = crcname
+        filename.Filename = fn
+        dirent = self.xZipDirectoryEntry_t()
+        dirent.FilenameCRC = crcname
+        dirent.Data = data
+        dirent.Length = len(data)
+        dirent.Filename = fn
+        self.pDirectoryEntries.append(dirent)
+        self.pFilenameEntries[crcname] = filename
+        if(preload):
+            preloadent = self.xZipDirectoryEntry_t()
+            preloadent.FilenameCRC = crcname
+            preloadent.Data = data[:preload]
+            preloadent.Length = preload
+            preloadent.Filename = fn
+            mapin = len(self.pPreloadDirectoryEntries)
+            self.nRegular2PreloadEntryMapping.append(mapin)
+            self.pPreloadDirectoryEntries.append(preloadent)
+        else:
+            self.nRegular2PreloadEntryMapping.append(0xFFFF)
+
+
+
     def read(self,f):
         self.Header.read(f)
         for a in range(self.Header.DirectoryEntries):
