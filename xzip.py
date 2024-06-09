@@ -73,6 +73,7 @@ def CRCFilename(filename):
             c = c.lower()
         hash = 0xFFFFFFFF & int(hash * 33 + ord(c))
     return hash
+
 class xZip(object):
     class xZipHeader_t(object):
         def __init__(self):
@@ -96,9 +97,9 @@ class xZip(object):
             self.FilenameStringsOffset = u32(f)
             self.FilenameStringsLength = u32(f)
         def write(self,f):
-            f.write(self.Magic)
-            w32(f,self.PreloadDirectoryEntries)
+            f.write(bytes(self.Magic,'utf-8'))
             w32(f,self.Version)
+            w32(f,self.PreloadDirectoryEntries)
             w32(f,self.DirectoryEntries)
             w32(f,self.PreloadBytes)
             w32(f,self.HeaderLength)
@@ -112,6 +113,9 @@ class xZip(object):
             self.StoredOffset = 0
             self.Data = []
             self.Filename = ''
+
+            #assisting value
+            self.OffsetOfOffset = 0
         def read(self,f):
             self.FilenameCRC = u32(f)
             self.Length = u32(f)
@@ -128,7 +132,7 @@ class xZip(object):
             f.write(self.Data)
             ret = f.tell()
             f.seek(self.OffsetOfOffset)
-            w32(off)
+            w32(f,off)
             f.seek(ret)
         def DirectoryEntrySortCompare(l,r):
             if(l.FilenameCRC < r.FilenameCRC):
@@ -171,8 +175,8 @@ class xZip(object):
             w32(f,self.TimeStamp)
         def write_string(self,f):
             off = f.tell()
-            f.write(self.Filename)
-            ret = f.tell()
+            f.write(bytes(self.Filename,'utf-8'))
+            ret = f.tell() + 1
             f.seek(self.OffsetOfOffset)
             w32(f,off)
             f.seek(ret)
@@ -218,7 +222,39 @@ class xZip(object):
         for a in self.pPreloadDirectoryEntries:
             a.Filename = self.pFilenameEntries[a.FilenameCRC].Filename
     def write(self,f):
-        print("Not working")
+        #Step one, we collect what we have as of entrys
+        self.Header = self.xZipHeader_t()
+        self.Header.PreloadDirectoryEntries = len(self.pPreloadDirectoryEntries)
+        self.Header.DirectoryEntries = len(self.pDirectoryEntries)
+        self.Header.FilenameEntries = len(self.pDirectoryEntries)
+
+        f.seek(0x24)
+        for a in self.pDirectoryEntries:
+            a.write_entry(f)
+        preloatstart = f.tell()
+        for a in self.pPreloadDirectoryEntries:
+            a.write_entry(f)
+        for a in self.nRegular2PreloadEntryMapping:
+            w16(f,a)
+        for a in self.pPreloadDirectoryEntries:
+            a.write_data(f)
+        preloadsize = f.tell() - preloatstart
+        self.Header.PreloadBytes = preloadsize
+        for a in self.pDirectoryEntries:
+            xPad(f)
+            a.write_data(f)
+        xPad(f)
+        strings_start = f.tell()
+        self.Header.FilenameStringsOffset = strings_start
+        for a in self.pFilenameEntries:
+            self.pFilenameEntries[a].write_entry(f)
+        for a in self.pFilenameEntries:
+            self.pFilenameEntries[a].write_string(f)
+        stringsize = f.tell()-strings_start
+        self.Header.FilenameStringsLength = stringsize
+        self.Footer.write(f)
+        f.seek(0)
+        self.Header.write(f)
 
 '''
 Header
