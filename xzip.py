@@ -190,7 +190,10 @@ class xZip(object):
         def write(self,f):
             #Ima be lazy
             w32(f,f.tell()+8)
-            f.write(bytes(self.Magic,'utf-8'))
+            try:
+                f.write(bytes(self.Magic,'utf-8'))
+            except:
+                f.write(self.Magic)
     def __init__(self):
         self.Header = self.xZipHeader_t()
         self.pDirectoryEntries = []
