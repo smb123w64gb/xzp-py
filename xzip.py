@@ -1,36 +1,5 @@
-import struct,time
-def u8(file):
-    return struct.unpack("B", file.read(1))[0]
- 
-def u16(file):
-    return struct.unpack("<H", file.read(2))[0]
- 
-def u32(file):
-    return struct.unpack("<I", file.read(4))[0]
-
-def s32(file):
-    return struct.unpack("<i", file.read(4))[0]
-
-def w32(file,val):
-    file.write(struct.pack("<I", val))
-
-def ws32(file,val):
-    file.write(struct.pack("<i", val))
-
-def w16(file,val):
-    file.write(struct.pack("<H", val))
-
-def ws16(file,val):
-    file.write(struct.pack("<h", val))
-
-def w8(file,val):
-    file.write(struct.pack("B", val))
-
-def ws8(file,val):
-    file.write(struct.pack("b", val))
-
-def wstr(file,val):
-    file.write(struct.pack("s", val))
+import time
+from struct_common import *
 
 def xPad(f):
     f.write(bytes([0] * (( 512 - ( f.tell() % 512) ) % 512)))
@@ -57,12 +26,6 @@ def rR(f,o,l):
     d = f.read(l)
     f.seek(c)
     return d
-def xmwPreloadSize(f):
-    f.seek(4)
-    headersize = u32(f)
-    f.seek(0x14)
-    vdatSize = u16(f)
-    return headersize+vdatSize
 
 def CRCFilename(filename):
     hash = int(0xAAAAAAAA)
@@ -190,7 +153,10 @@ class xZip(object):
         def write(self,f):
             #Ima be lazy
             w32(f,f.tell()+8)
-            f.write(bytes(self.Magic,'utf-8'))
+            try:
+                f.write(bytes(self.Magic,'utf-8'))
+            except:
+                f.write(self.Magic)
     def __init__(self):
         self.Header = self.xZipHeader_t()
         self.pDirectoryEntries = []
