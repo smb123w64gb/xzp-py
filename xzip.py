@@ -198,6 +198,11 @@ class xZip(object):
         self.nRegular2PreloadEntryMapping = []
         self.pFilenameEntries = {}
         self.Footer = self.xZipFooter_t()   
+    def findkey(self,crc):
+        for idx,obj in enumerate(self.pDirectoryEntries):
+            if obj.FilenameCRC == crc:
+                return idx
+        return None
     def addFile(self,f,fn,preload=0):
         data = f.read()
         crcname = CRCFilename(fn)
@@ -222,8 +227,12 @@ class xZip(object):
             self.pPreloadDirectoryEntries.append(preloadent)
         else:
             self.nRegular2PreloadEntryMapping.append(0xFFFF)
-
-
+    def delete(self,fn):
+        crcname = CRCFilename(fn)
+        entryIndex = self.findkey(crcname)
+        if(entryIndex == None):
+            raise "Filename not found"
+        
 
     def read(self,f):
         self.Header.read(f)
@@ -248,6 +257,7 @@ class xZip(object):
             a.Filename = self.pFilenameEntries[a.FilenameCRC].Filename
         for a in self.pPreloadDirectoryEntries:
             a.Filename = self.pFilenameEntries[a.FilenameCRC].Filename
+   
     def write(self,f):
         #Step one, we collect what we have as of entrys
         self.Header = self.xZipHeader_t()
